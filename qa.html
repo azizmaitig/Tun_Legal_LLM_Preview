@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المساعد القانوني التونسي - JORT v7.1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h2 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .assistant-message {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            margin-right: auto;
+            margin-left: 0;
+        }
+
+        .message strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #667eea;
+        }
+
+        .user-message strong {
+            color: white;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .chat-input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        #qaInput {
+            flex: 1;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        #qaInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #qaSendBtn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #qaSendBtn:hover {
+            background: #5568d3;
+        }
+
+        #qaSendBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .sources-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .sources-container h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .source-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .source-card strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .source-card p {
+            color: #666;
+            line-height: 1.6;
+            margin-top: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            padding: 20px;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d32f2f;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            border: 2px solid white;
+            background: transparent;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .mode-btn.active:hover {
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💬 المساعد القانوني التونسي</h1>
+            <p>JORT Legal Assistant v7.1 - مدعوم بالذكاء الاصطناعي</p>
+        </header>
+
+        <div class="mode-toggle">
+            <button class="mode-btn" onclick="window.location.href='../search.html'">🔍 البحث</button>
+            <button class="mode-btn active">💬 المساعد القانوني</button>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>المساعد القانوني</h2>
+                <p>اسأل عن القوانين التونسية واحصل على إجابات مدعومة بالنصوص</p>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant-message">
+                    <strong>المساعد:</strong>
+                    مرحباً! أنا المساعد القانوني التونسي. يمكنك طرح أسئلة قانونية وسأجيبك بناءً على النصوص القانونية المتاحة.<br><br>
+                    <strong>أمثلة:</strong><br>
+                    • ما هي عقوبة السرقة؟<br>
+                    • متى تأسست المجلة التجارية؟<br>
+                    • ما هي إجراءات الزواج في مجلة الأحوال الشخصية؟
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-row">
+                    <input type="text" id="qaInput" placeholder="اكتب سؤالك هنا... (مثال: ما هي عقوبة العنف السياسي؟)" />
+                    <button id="qaSendBtn" onclick="sendQA()">إرسال</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sources-container" id="sourcesContainer">
+            <h3>📚 المصادر المستخدمة</h3>
+            <div id="sourcesList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        let qaSessionId = localStorage.getItem('qa_session_id') || null;
+
+        // Save session ID
+        function saveSessionId(sessionId) {
+            qaSessionId = sessionId;
+            localStorage.setItem('qa_session_id', sessionId);
+        }
+
+        // Send Q&A request
+        async function sendQA() {
+            const input = document.getElementById('qaInput');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const chatMessages = document.getElementById('chatMessages');
+            const sendBtn = document.getElementById('qaSendBtn');
+
+            // Disable input
+            sendBtn.disabled = true;
+            input.disabled = true;
+
+            // Add user message
+            chatMessages.innerHTML += `
+                <div class="message user-message">
+                    <strong>أنت:</strong> ${question}
+                </div>
+            `;
+
+            // Add loading
+            const loadingId = 'loading-' + Date.now();
+            chatMessages.innerHTML += `
+                <div id="${loadingId}" class="message assistant-message">
+                    <strong>المساعد:</strong> ⏳ جاري البحث والإجابة...
+                </div>
+            `;
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            input.value = '';
+
+            try {
+                const res = await fetch(`${API_BASE}/qa`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        q: question,
+                        session_id: qaSessionId,
+                        limit: 5
+                    })
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+
+                // Save session ID
+                if (data.session_id) {
+                    saveSessionId(data.session_id);
+                }
+
+                // Replace loading with answer
+                document.getElementById(loadingId).innerHTML = `
+                    <strong>المساعد:</strong><br>
+                    ${data.answer.replace(/\n/g, '<br>')}
+                `;
+
+                // Show sources
+                if (data.sources && data.sources.length > 0) {
+                    const sourcesDiv = document.getElementById('sourcesContainer');
+                    const sourcesList = document.getElementById('sourcesList');
+
+                    sourcesDiv.style.display = 'block';
+                    sourcesList.innerHTML = data.sources.map(s => `
+                        <div class="source-card">
+                            <strong>${s.code_name} - الفصل ${s.article_number}</strong>
+                            <span class="badge">${s.article_id || ''}</span>
+                            <span class="score-badge" style="background: #667eea; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.85em;">${s.score}</span>
+                            
+                            ${s.legal_features ? `
+                                <div class="features" style="margin-top: 8px;">
+                                    <strong>الميزات:</strong>
+                                    ${s.legal_features.has_sanction ? '⚖️ عقوبة ' : ''}
+                                    ${s.legal_features.has_deadline ? '⏰ أجل ' : ''}
+                                    ${s.legal_features.topics && s.legal_features.topics.length > 0 ? 
+                                        `📌 ${s.legal_features.topics.join('، ')}` : ''}
+                                </div>
+                            ` : ''}
+                            
+                            ${s.relations && s.relations.refers_to && s.relations.refers_to.length > 0 ? `
+                                <div class="relations" style="margin-top: 8px;">
+                                    <strong>يحيل إلى:</strong> ${s.relations.refers_to.join('، ')}
+                                </div>
+                            ` : ''}
+                            
+                            <p style="margin-top: 8px;">${s.content}...</p>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (e) {
+                document.getElementById(loadingId).innerHTML = `
+                    <strong>المساعد:</strong><br>
+                    ❌ حدث خطأ: ${e.message}
+                `;
+            } finally {
+                sendBtn.disabled = false;
+                input.disabled = false;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Allow Enter key
+        document.addEventListener('DOMContentLoaded', function() {
+            const qaInput = document.getElementById('qaInput');
+            if (qaInput) {
+                qaInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') sendQA();
+                });
+            }
+
+            // Check API health
+            fetch(`${API_BASE}/qa/health`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log('API Health:', data);
+                    if (data.status === 'no_llm') {
+                        alert('تنبيه: نموذج اللغة غير متاح. تأكد من إعدادات API keys.');
+                    }
+                })
+                .catch(err => console.error('Health check failed:', err));
+        });
+    </script>
+</body>
+</html>

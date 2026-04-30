@@ -1,0 +1,40 @@
+# Environment & Secrets
+.env
+*.env
+
+# Data directories (exclude raw data)
+input/
+output/
+data/
+
+# Version directories (exclude old versions with their own .env)
+v7/
+v7_1/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files
+*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

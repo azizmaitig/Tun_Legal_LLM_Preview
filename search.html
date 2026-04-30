@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JORT Legal Search - البحث في النصوص القانونية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .search-box {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #searchBtn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #searchBtn:hover {
+            background: #5568d3;
+        }
+
+        #searchBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filters select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+        }
+
+        .results-info {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .result-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .result-code {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .result-article {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .result-score {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .result-content {
+            line-height: 1.8;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .meta-tag {
+            padding: 5px 12px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .meta-tag.bank-related {
+            background: #ffe6e6;
+            color: #d32f2f;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d32f2f;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: white;
+            padding: 40px;
+            font-size: 1.2em;
+        }
+
+        .highlight {
+            background: yellow;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 البحث في النصوص القانونية</h1>
+            <p>JORT Legal Article Search - Powered by AraBERT + Qdrant</p>
+        </header>
+
+        <div class="search-box">
+            <div class="search-row">
+                <input type="text" id="searchInput" placeholder="اكتب كلمة البحث هنا... (مثال: السرقة، العقود، البنوك)" />
+                <button id="searchBtn">بحث</button>
+            </div>
+            <div class="filters">
+                <select id="codeFilter">
+                    <option value="">جميع القوانين</option>
+                </select>
+                <select id="limitSelect">
+                    <option value="5">5 نتائج</option>
+                    <option value="10" selected>10 نتائج</option>
+                    <option value="20">20 نتيجة</option>
+                    <option value="50">50 نتيجة</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="resultsInfo" class="results-info" style="display:none;"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        // Load available codes
+        async function loadCodes() {
+            try {
+                const res = await fetch(`${API_BASE}/codes`);
+                const data = await res.json();
+                const select = document.getElementById('codeFilter');
+                data.codes.forEach(code => {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.textContent = code;
+                    select.appendChild(option);
+                });
+            } catch (e) {
+                console.error('Failed to load codes:', e);
+            }
+        }
+
+        // Perform search
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            const codeName = document.getElementById('codeFilter').value;
+            const limit = document.getElementById('limitSelect').value;
+            const resultsDiv = document.getElementById('results');
+            const infoDiv = document.getElementById('resultsInfo');
+
+            // Show loading
+            resultsDiv.innerHTML = '<div class="loading">⏳ جاري البحث...</div>';
+            infoDiv.style.display = 'none';
+
+            try {
+                let url = `${API_BASE}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+                if (codeName) url += `&code_name=${encodeURIComponent(codeName)}`;
+                
+                const res = await fetch(url);
+                
+                // Check if response is OK
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errorText}`);
+                }
+                
+                const data = await res.json();
+
+                // Show results info
+                infoDiv.innerHTML = `تم العثور على <strong>${data.total}</strong> نتيجة لـ "<strong>${data.query}</strong>"`;
+                infoDiv.style.display = 'block';
+
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="no-results">لا توجد نتائج مطابقة</div>';
+                    return;
+                }
+
+                // Render results
+                resultsDiv.innerHTML = data.results.map(r => `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <div>
+                                <span class="result-code">${r.code_name}</span>
+                                <span class="result-article"> - الفصل ${r.article_number}</span>
+                            </div>
+                            <span class="result-score">${r.score}</span>
+                        </div>
+                        <div class="result-content">${highlightText(r.content, query)}</div>
+                        <div class="result-meta">
+                            ${r.book ? `<span class="meta-tag">📖 ${r.book}</span>` : ''}
+                            ${r.title ? `<span class="meta-tag">📑 ${r.title}</span>` : ''}
+                            ${r.llm_legal_action ? `<span class="meta-tag">⚖️ ${r.llm_legal_action}</span>` : ''}
+                            ${r.llm_crime_type ? `<span class="meta-tag">🔴 ${r.llm_crime_type}</span>` : ''}
+                            ${r.llm_banking_related ? `<span class="meta-tag bank-related">🏦 بنكي</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                resultsDiv.innerHTML = `<div class="error">❌ خطأ: ${e.message}</div>`;
+            }
+        }
+
+        // Highlight search term in text
+        function highlightText(text, query) {
+            if (!query) return text;
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        // Event listeners
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // Load codes on page load
+        loadCodes();
+    </script>
+</body>
+</html>
