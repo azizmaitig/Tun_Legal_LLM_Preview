@@ -37,6 +37,8 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 <img width="1793" height="881" alt="image" src="https://github.com/user-attachments/assets/e9080af8-459f-4b3a-96d8-a33433707e3c" />
 1.Active LLM and  Web search provider  2. Chat Panel :User input field   3.legal sources: Legal code name ,Article number ,Relevance score
 4. History Panel: Lists previous sessions ,“New Session”   5.Structured legal response: Definition,Explanation,Summary  6.user query 
+
+
 ```
 User: "ما المقصود بالتشريع والترتيب المنظم؟"
 ```
