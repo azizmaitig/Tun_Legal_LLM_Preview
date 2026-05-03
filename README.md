@@ -1,3 +1,6 @@
+Status: 🚧 Experimental 
+
+
 # JORT Legal Q&A v7.1
 
 An Arabic-language AI assistant that answers questions about Tunisian law. Users ask questions in Arabic → the system performs **hybrid semantic search** over 8,458 legal article chunks across 10+ legal codes → an LLM synthesizes a grounded answer with cited sources, streamed in real-time.
@@ -35,7 +38,31 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 ```
 User: "ما المقصود بالتشريع والترتيب المنظم؟"
 ```
-
+<img width="1569" height="1071" alt="legal_llm_mobile" src="https://github.com/user-attachments/assets/95adee41-9b34-4d43-afe2-45b0403f1a8b" />
+<img width="1920" height="1080" alt="Design sans titre" src="https://github.com/user-attachments/assets/07605159-47ff-454c-9359-9a0b8a9f6443"/>
+1. Top Bar
+Displays:
+Active LLM provider (e.g., NVIDIAProvider)
+Web search provider (fallback engine)
+Connection/status indicator
+2. Chat Panel
+User input field
+Message bubbles (user + assistant)
+3. Sources Panel
+Displays retrieved legal sources:
+Legal code name
+Article number
+Relevance score
+4. History Panel
+Lists previous sessions
+Allows quick navigation
+“New Session” button
+5. Answer Card
+Structured legal response:
+Definition
+Explanation
+Summary
+Includes actions (copy, feedback…)
 ### Step 1: Input Validation
 ```
 Frontend → POST /qa/stream
