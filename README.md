@@ -35,8 +35,10 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 
 ## Query-to-Answer Flow (13 Steps)
 <img width="1793" height="881" alt="image" src="https://github.com/user-attachments/assets/e9080af8-459f-4b3a-96d8-a33433707e3c" />
-1.Active LLM and  Web search provider  2. Chat Panel :User input field   3.legal sources: Legal code name ,Article number ,Relevance score
-4. History Panel: Lists previous sessions ,“New Session”   5.Structured legal response: Definition,Explanation,Summary  6.user query 
+1.Active LLM and  Web search provider    2. Chat Panel :User input field     3.legal sources: Legal code name ,Article number ,Relevance score
+4. History Panel: Lists previous sessions ,“New Session”     5.Structured legal response: Definition,Explanation,Summary    6.user query 
+
+
 
 
 ```
@@ -367,18 +369,18 @@ All session queries: {"user_id": user_id} filter
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/auth/login` | ❌ | Login → JWT token |
+| `POST` | `/auth/login` | ✅ | Login → JWT token |
 | `POST` | `/qa/stream` | ✅ | Streaming Q&A (SSE) |
 | `POST` | `/qa` | ✅ | Non-streaming Q&A |
-| `GET` | `/qa/article` | ❌ | Full article by code + number |
+| `GET` | `/qa/article` | ✅ | Full article by code + number |
 | `GET` | `/qa/sessions` | ✅ | List user sessions |
 | `GET` | `/qa/session/{id}` | ✅ | Get session messages |
 | `DELETE` | `/qa/sessions/{id}` | ✅ | Delete session |
-| `POST` | `/qa/web_search` | ❌ | Standalone web search |
-| `GET` | `/qa/health` | ❌ | Health check |
+| `POST` | `/qa/web_search` | ✅ | Standalone web search |
+| `GET` | `/qa/health` | ✅ | Health check |
 | `POST` | `/qa/feedback` | ❌ | Feedback (1–5 stars) |
 | `GET` | `/qa/feedback/stats` | ❌ | Feedback analytics |
-| `GET` | `/` | ❌ | Serve frontend |
+| `GET` | `/` | ✅ | Serve frontend |
 
 ---
 
