@@ -118,7 +118,7 @@ POST /qa (qa_api.py)
     ↓
 2. Top 5 articles as context
     ↓
-3. LLM Call (HF/Groq)
+3. LLM Call (HF/Groq/nividia)
    + conversation history
     ↓
 4. Grounded Answer + Sources
@@ -139,6 +139,9 @@ Display in Chat Interface
 **User:** هل يمكن أن تصل العقوبة إلى السجن؟
 
 **Assistant:** نعم، يمكن أن تصل العقوبة إلى السجن وفق الفصل 218...
+
+<img width="1569" height="1071" alt="legal_llm_mobile" src="https://github.com/user-attachments/assets/75228c83-a6b4-4e1c-aa82-e60996446658" />
+
 
 ## Configuration
 
