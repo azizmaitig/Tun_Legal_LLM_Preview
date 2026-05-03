@@ -1,200 +1,407 @@
-# JORT Parser v7.1 - LLM Legal Assistant (Experimental)
+# JORT Legal Q&A v7.1
 
-**Status:** 🚧 Experimental - DO NOT use in production yet
+An Arabic-language AI assistant that answers questions about Tunisian law. Users ask questions in Arabic → the system performs **hybrid semantic search** over 8,458 legal article chunks across 10+ legal codes → an LLM synthesizes a grounded answer with cited sources, streamed in real-time.
 
-## Overview
+---
 
-v7.1 adds a GPT-style Q&A interface for Tunisian law, powered by:
-- **Hybrid Search**: AraBERT (dense) + BM25 (sparse) + RRF fusion
-- **LLM Grounding**: Answers based on retrieved legal articles
-- **Conversation Memory**: Supports follow-up questions
+## Architecture
 
-This is a separate directory from v7 - both can coexist without conflicts.
-
-## Features
-
-### LLM Legal Assistant
-- Natural language Q&A in Arabic (e.g., "ما هي عقوبة العنف السياسي؟")
-- Answers grounded in your Qdrant database (1154 articles)
-- Citations to specific articles and legal codes
-- Conversation history for follow-up questions
-
-### Technical Stack
-- **Backend**: FastAPI (`qa_api.py`)
-- **Frontend**: Vanilla JS chat interface (`qa.html`)
-- **LLM Providers**: HuggingFace (primary) + Groq (fallback)
-- **Vector DB**: Qdrant Cloud (`V7collection_hybrid`)
-
-## Quick Start
-
-### 1. Prerequisites
-```bash
-# Ensure you have the API keys in v7_1/.env
-# (Copied from v7, already has HF_TOKEN, GROQ_API_KEY, OPENROUTER_API_KEY)
+```
+┌──────────────────────────────────────────────────────────┐
+│                     Frontend (Browser)                    │
+│  Single-page app — RTL, dark theme, Arabic UI            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │ Sources  │  │   Chat   │  │ History  │               │
+│  │ (left)   │  │ (center) │  │ (right)  │               │
+│  └──────────┘  └──────────┘  └──────────┘               │
+└────────────────────────┬─────────────────────────────────┘
+                         │ HTTP + SSE (text/event-stream)
+┌────────────────────────▼─────────────────────────────────┐
+│                   Backend (FastAPI :8002)                 │
+│  JWT Auth → Rate Limit → Cache → Hybrid Search → LLM    │
+└──┬──────────┬──────────┬──────────┬──────────────────────┘
+   │          │          │          │
+   ▼          ▼          ▼          ▼
+┌──────┐  ┌───────┐  ┌───────┐  ┌───────┐
+│Qdrant│  │NVIDIA │  │MongoDB│  │Tavily │
+│Cloud │  │NIM API│  │Atlas  │  │Search │
+└──────┘  └───────┘  └───────┘  └───────┘
 ```
 
-### 2. Start the Q&A API Server
-```bash
-cd "/mnt/d/projects/obsidian second brain/10-Projects/11-Active/jort/parser/src/jort_parser/v7_1"
-python3 qa_api.py
+---
+
+## Query-to-Answer Flow (13 Steps)
+
+```
+User: "ما المقصود بالتشريع والترتيب المنظم؟"
 ```
 
-Server runs on: `http://localhost:8001`
-API docs: `http://localhost:8001/docs`
-
-### 3. Open the Chat Interface
-```bash
-# From src/ directory
-cd "/mnt/d/projects/obsidian second brain/10-Projects/11-Active/jort/parser/src"
-python3 -m http.server 8080
+### Step 1: Input Validation
 ```
-
-Visit: `http://localhost:8080/jort_parser/v7_1/qa.html`
-
-## API Endpoints
-
-### POST /qa
-Q&A with conversation support
-
-**Request:**
-```json
+Frontend → POST /qa/stream
 {
-  "q": "ما هي عقوبة العنف السياسي؟",
-  "session_id": "optional-uuid",
-  "limit": 5
+  "q": "ما المقصود بالتشريع والترتيب المنظم؟",
+  "limit": 15,
+  "session_id": "usr_abc123:sess-xyz"
 }
+
+Backend validates:
+├─ Length: 3–500 characters ✓
+├─ Not empty ✓
+└─ Auth: JWT token decoded → user_id extracted ✓
 ```
 
-**Response:**
-```json
-{
-  "answer": "العنف السياسي ليس له تعريف واحد صريح...",
+### Step 2: Rate Limiting
+```
+In-memory sliding window check:
+├─ Session "usr_abc123:sess-xyz" → 2 requests in last 60s
+├─ Limit: 10 req/min → ALLOWED ✓
+└─ Record request timestamp
+```
+
+### Step 3: Cache Check
+```
+In-memory cache lookup (1-hour TTL):
+├─ Key: "ما المقصود بالتشريع والترتيب المنظم؟:15"
+├─ No cached result → proceed to search
+└─ (If cached: skip to Step 8, serve from cache)
+```
+
+### Step 4: Session Retrieval
+```
+MongoDB query:
+  db.qa_sessions.find({"user_id": "usr_abc123"})
+
+Result:
+  messages: [
+    {"role": "user", "content": "ما هي شروط الطلاق في القانون التونسي؟"},
+    {"role": "assistant", "content": "يقع الطلاق وفقاً للفصل 30..."}
+  ]
+```
+
+### Step 5: 3-Branch Hybrid Search (Qdrant)
+
+The query is embedded three ways in parallel:
+
+**Branch A — Dense (Semantic)**
+```
+Query: "ما المقصود بالتشريع والترتيب المنظم؟"
+    ↓ AraBERT (local, 768-dim, mean-pooled)
+Dense vector: [0.12, -0.05, 0.89, ..., 0.34]
+    ↓ Qdrant "dense" vector field (cosine distance)
+Top 100 results by semantic similarity
+```
+
+**Branch B — Sparse (Keyword/BM25)**
+```
+Query: "ما المقصود بالتشريع والترتيب المنظم؟"
+    ↓ TF-IDF vectorizer (vocab: ~10,000 terms)
+Sparse vector: {indices: [42, 156, 891], values: [2.1, 1.8, 3.2]}
+    ↓ Qdrant "bm25" sparse vector field (IDF modifier)
+Top 100 results by keyword match
+```
+
+**Branch C — Keyword (Arabic keyword extraction)**
+```
+Query: "ما المقصود بالتشريع والترتيب المنظم؟"
+    ↓ extract_arabic_keywords()
+    ├─ Remove stop words: ما, المقصود, بـ, في
+    └─ Extract: ["تشريع", "ترتيب", "منظم"]
+    ↓ Qdrant KeywordQuery with MatchText on "content" field
+Top 50 results by keyword presence
+```
+
+**Fusion — Reciprocal Rank Fusion (RRF)**
+```
+All 3 ranked lists combined:
+  RRF_score = Σ (1 / (60 + rank_i))
+
+Each result gets a fused score combining
+its position across all 3 search methods
+```
+
+**Post-Reranking**
+```
+For each result:
+  Jaccard(query_keywords, result_keywords)
+  Final_score = (RRF_score × 0.7) + (Jaccard × 0.3)
+
+Top 15 results selected as context
+```
+
+### Step 6: Sources Emitted (SSE Event #1)
+```
+Backend immediately sends to frontend:
+
+event: sources
+data: {
   "sources": [
     {
-      "code_name": "المجلة الجزائية",
-      "article_number": "218",
-      "content": "إن الفصل 218 ينص على...",
-      "score": 0.8523
-    }
+      "chunk_id": 7201,
+      "code_name": "مجلة تقديم الخدمات المالية لغير المقيمين",
+      "article_number": "7",
+      "content": "يشير مصطلح التشريع والترتيب المنظم إلى...",
+      "score": 0.91,
+      "article_id": "code-financial-services__7"
+    },
+    { ...14 more sources... }
   ],
-  "session_id": "uuid-123"
+  "session_id": "sess-xyz"
 }
+
+Frontend renders source cards in left panel in real-time
 ```
 
-### GET /qa/health
-Check LLM availability
+### Step 7: LLM Generation (Streaming)
+```
+Messages sent to NVIDIA API:
 
-### DELETE /qa/sessions/{session_id}
-Clear conversation history
+System: "أنت مساعد قانوني متخصص في القانون التونسي..."
+User:   "النصوص القانونية المتاحة:\n[1] مجلة تقديم الخدمات المالية لغير المقيمين - الفصل 7: يشير مصطلح التشريع...\n[2] ..."
+Assistant: "فهمت."
+User:   (conversation history from MongoDB)
+User:   "ما المقصود بالتشريع والترتيب المنظم؟"
+
+NVIDIA streams response token by token:
+```
+
+Each token is sent to the frontend via SSE:
+
+```
+event: token
+data: {"token": "الم"}
+
+event: token
+data: {"token": "فهوم"}
+
+event: token
+data: {"token": " "}
+
+event: token
+data: {"token": "الق"}
+
+event: token
+data: {"token": "انون"}
+...
+```
+
+Frontend appends tokens in real-time → user sees the answer being typed live.
+
+### Step 8: Web Search Fallback (Conditional)
+```
+If LLM response contains failure indicators:
+  "لا توجد معلومات كافية" / "غير متوفرة في النصوص"
+
+Then:
+  1. Send SSE "reset" event → frontend clears partial text
+  2. Query Tavily: "التشريع والترتيب المنظم Tunisia القانون التونسي"
+  3. Build QA_SYNTHESIS_PROMPT with local results + web results
+  4. Second LLM call → new streaming response
+
+If answer is good → skip web search entirely
+```
+
+### Step 9: Source Filtering
+```
+Full answer received:
+  "يشير مصطلح التشريع والترتيب المنظم إلى مجموعة القوانين... [1]"
+
+filter_used_sources():
+  ├─ Parse citation markers: [1], [2], [W1]
+  ├─ Match [1] → source #1 (مجلة تقديم الخدمات المالية, الفصل 7)
+  ├─ Match keyword overlap for uncited sources
+  └─ Return: only sources actually referenced in answer
+
+This prevents showing irrelevant sources that were
+searched but not used in the final answer
+```
+
+### Step 10: Sources Re-emitted (SSE Event #2)
+```
+event: sources
+data: {
+  "sources": [
+    { "code_name": "مجلة تقديم الخدمات المالية لغير المقيمين", "article_number": "7", ... }
+  ],
+  "session_id": "sess-xyz"
+}
+
+Frontend updates source panel to show ONLY used sources
+```
+
+### Step 11: Cache Response
+```
+In-memory cache store:
+  Key: "ما المقصود بالتشريع والترتيب المنظم؟:15"
+  Value: {
+    "answer": "المفهوم القانوني: التشريع والترتيب المنظم...",
+    "sources": [...],
+    "created_at": <timestamp>,
+    "ttl": 3600  // 1 hour
+  }
+```
+
+### Step 12: Save Session
+```
+MongoDB upsert:
+  db.qa_sessions.update_one(
+    {"user_id": "usr_abc123"},
+    {"$push": {"messages": {
+      "role": "assistant",
+      "content": "المفهوم القانوني: التشريع والترتيب المنظم. يشير مصطلح...",
+      "timestamp": "2026-05-03T12:00:00Z"
+    }}}
+  )
+
+  Keep last 10 messages max
+```
+
+### Step 13: Done (SSE Event #3)
+```
+event: done
+data: {"session_id": "sess-xyz"}
+
+Frontend:
+  ├─ Finalize answer display
+  ├─ Show copy button + feedback stars
+  ├─ Update sidebar with new session
+  └─ Re-enable input
+```
+
+### Full SSE Event Timeline
+```
+Time  Event      What User Sees
+────  ─────────  ─────────────────────────────────────────
+0s    sources    Source cards appear in left panel
+0.5s  token      "ي" appears in answer bubble
+0.6s  token      "يقع" appears
+0.7s  token      "يقع " appears
+...   token      Answer streams word by word in real-time
+5s    done       Answer finalized, copy + feedback shown
+```
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend** | Python 3.12, FastAPI, Uvicorn |
+| **Vector DB** | Qdrant Cloud (AWS eu-central-1), collection `v7.1` |
+| **Embeddings** | AraBERT `aubmindlab/bert-base-arabertv2` (local, 768-dim) |
+| **Sparse** | scikit-learn TF-IDF (BM25, ~10K vocab) |
+| **LLM** | NVIDIA NIM — `meta/llama-4-maverick-17b-128e-instruct` |
+| **Auth** | PyJWT (HS256, 72h) + bcrypt |
+| **Sessions** | MongoDB Atlas (Motor async driver) |
+| **Web Search** | Tavily API |
+| **Arabic NLP** | PyArabic (normalization, numeral conversion) |
+| **Frontend** | Vanilla JS, marked.js, Cairo/Amiri fonts, RTL, PWA |
+
+---
 
 ## File Structure
 
 ```
-v7_1/
-├── qa_api.py              # FastAPI server (NEW)
-├── qa.html                # Chat interface (NEW)
-├── README.md              # This file (NEW)
-├── .env                   # API keys (copied from v7)
-├── config.py              # Config (copied from v7)
-├── utils.py               # Utilities (copied from v7)
-├── llm/                   # LLM providers (copied from v7)
-│   ├── __init__.py
-│   ├── base.py
-│   ├── hf_provider.py
-│   ├── groq_provider.py
-│   └── openrouter_provider.py
-└── (other v7 files...)   # Not used by v7.1 Q&A
+v7_1/final/
+├── qa_api.py (1,657 lines)           # Main FastAPI app
+├── search_api.py (220 lines)          # Standalone search API
+├── config.py                          # Prompts, model names, patterns
+├── web_search.py                      # Tavily web search module
+├── utils.py                           # Arabic normalization, JSON repair
+├── create_user.py                     # Admin CLI for user management
+├── .env                               # API keys
+├── requirements.txt                   # Dependencies
+├── Procfile                           # Deployment config
+├── llm/
+│   ├── base.py                        # Retry/backoff logic
+│   └── nvidia_provider.py             # NVIDIA Chat API
+├── static/
+│   ├── qa.html (3,115 lines)          # Single-file SPA frontend
+│   ├── sw.js                          # Service worker
+│   ├── manifest.json                  # PWA manifest
+│   ├── marked.min.js                  # Markdown parser
+│   └── icon-192.png / icon-512.png    # PWA icons
+└── input/new_data/
+    └── chunks.json (~168K lines)      # Pre-chunked legal data
 ```
-
-## How It Works
-
-```
-User Question (qa.html)
-    ↓
-POST /qa (qa_api.py)
-    ↓
-1. Hybrid Search in Qdrant
-   (AraBERT + BM25 + RRF)
-    ↓
-2. Top 5 articles as context
-    ↓
-3. LLM Call (HF/Groq/nividia)
-   + conversation history
-    ↓
-4. Grounded Answer + Sources
-    ↓
-Display in Chat Interface
-```
-
-## Example Conversation
-
-**User:** ما المقصود بالتشريع والترتيب المنظم؟
-
-**Assistant:** المفهوم القانوني:
-التشريع والترتيب المنظم.
-
-التعريف:
-يشير مصطلح "التشريع والترتيب المنظم" إلى مجموعة القوانين واللوائح التنظيمية المعمول بها، والتي تهدف إلى تنظيم مجالات أو أنشطة محددة داخل الدولة.
-
-في القانون التونسي:
-يُستخدم هذا المصطلح، على سبيل المثال، في الفصل 7 من مجلة تقديم الخدمات المالية لغير المقيمين، للدلالة على الإطار القانوني والتنظيمي الذي يحكم نشاط المؤسسات المالية، بما في ذلك القرض والصرف والأسواق المالية.
-
-الشروط المرتبطة به:
-
-وجود قوانين ولوائح سارية التطبيق.
-ارتباط هذه القواعد بمجال معين (مثل القطاع المالي).
-
-الخلاصة:
-التشريع والترتيب المنظم هو الإطار القانوني الذي يضم القوانين واللوائح المنظمة لنشاط معين في تونس.
-<img width="1569" height="1071" alt="legal_llm_mobile" src="https://github.com/user-attachments/assets/75228c83-a6b4-4e1c-aa82-e60996446658" />
-
-
-## Configuration
-
-Edit `config.py` to adjust:
-- `QA_MAX_CONTEXT_ARTICLES`: Number of search results to use (default: 5)
-- `QA_MAX_TOKENS`: Max tokens in LLM response (default: 1000)
-- `QA_TEMPERATURE`: LLM temperature (default: 0.1 for accuracy)
-- `QA_MAX_HISTORY`: Conversation history length (default: 10 messages)
-
-## Testing
-
-### Test API Health
-```bash
-curl http://localhost:8001/qa/health
-```
-
-### Test Q&A
-```bash
-curl -X POST http://localhost:8001/qa \
-  -H "Content-Type: application/json" \
-  -d '{"q": "ما هي عقوبة السرقة؟", "limit": 3}'
-```
-
-## Known Issues / TODO
-
-- [ ] Add score_threshold parameter to /qa endpoint
-- [ ] Add "Did you mean?" suggestions for misspelled Arabic queries
-- [ ] Add streaming responses for better UX
-- [ ] Add feedback mechanism (thumbs up/down)
-- [ ] Deploy to production (cloud hosting)
-
-## Differences from v7
-
-| Feature | v7 | v7.1 |
-|---------|----|------|
-| Article Extraction | ✅ | ❌ (not needed) |
-| LLM Enhancement | ✅ | ❌ (not needed) |
-| Hybrid Search API | ✅ (search_api.py) | ✅ (reused) |
-| **LLM Q&A** | ❌ | ✅ (qa_api.py) |
-| **Chat Interface** | ❌ | ✅ (qa.html) |
-
-## License
-
-Same as v7 (MIT)
 
 ---
 
-**Created:** 2026-04-29  
-**Based on:** JORT Parser v7  
-**Status:** Experimental - Testing Phase
+## Auth System
+
+```
+Admin: python create_user.py "aziz123" "Aziz"
+  ↓
+MongoDB users collection:
+  {
+    "user_id": "usr_550e8400...",
+    "passcode_hash": "$2b$12$...",    # bcrypt
+    "name": "Aziz",
+    "is_active": true
+  }
+  ↓
+User enters passcode → POST /auth/login
+  ↓
+Backend: bcrypt.checkpw(passcode, stored_hash)
+  ↓
+JWT token (HS256, 72h expiry, payload: {user_id, iat, exp})
+  ↓
+Frontend: localStorage.setItem("jort_token", token)
+  ↓
+All requests: Authorization: Bearer <token>
+  ↓
+Backend: get_current_user() decodes JWT → extracts user_id
+  ↓
+All session queries: {"user_id": user_id} filter
+```
+
+---
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/auth/login` | ❌ | Login → JWT token |
+| `POST` | `/qa/stream` | ✅ | Streaming Q&A (SSE) |
+| `POST` | `/qa` | ✅ | Non-streaming Q&A |
+| `GET` | `/qa/article` | ❌ | Full article by code + number |
+| `GET` | `/qa/sessions` | ✅ | List user sessions |
+| `GET` | `/qa/session/{id}` | ✅ | Get session messages |
+| `DELETE` | `/qa/sessions/{id}` | ✅ | Delete session |
+| `POST` | `/qa/web_search` | ❌ | Standalone web search |
+| `GET` | `/qa/health` | ❌ | Health check |
+| `POST` | `/qa/feedback` | ❌ | Feedback (1–5 stars) |
+| `GET` | `/qa/feedback/stats` | ❌ | Feedback analytics |
+| `GET` | `/` | ❌ | Serve frontend |
+
+---
+
+## Data: Legal Codes Indexed
+
+| Code | English |
+|---|---|
+| المجلة الجزائية | Penal Code |
+| مجلة الأحوال الشخصية | Personal Status Code |
+| المجلة التجارية | Commercial Code |
+| مجلة الالتزامات والعقود | Code of Obligations and Contracts |
+| مجلة الشركات التجارية | Commercial Companies Code |
+| مجلة الإجراءات المدنية والتجارية | Civil and Commercial Procedure |
+| مجلة التأمين | Insurance Code |
+| مجلة التحكيم | Arbitration Code |
+| مجلة الشغل البحري | Maritime Labor Code |
+| مجلة حماية الطفل | Child Protection Code |
+| القانون الدولي الخاص | Private International Law |
+
+**Total: 8,458 chunks** across 10+ legal codes
+
+---
+
+## Deployment
+
+| Aspect | Details |
+|---|---|
+| **Hosting** | Self-hosted on local PC (WSL) |
+| **Server** | `uvicorn qa_api:app --host 0.0.0.0 --port 8002` |
+| **Public access** | Cloudflare Tunnel (temporary URL) |
+| **Budget** | $0 (all external services on free tiers) |
+| **PaaS ready** | `Procfile` + `runtime.txt` for Render/Railway |
