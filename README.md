@@ -33,9 +33,9 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 
 ---
 
-## Query-to-Answer Flow (13 Steps)
-<img width="1793" height="881" alt="image" src="https://github.com/user-attachments/assets/e9080af8-459f-4b3a-96d8-a33433707e3c" />
+
 ## 🎨 UI Overview
+<img width="1793" height="881" alt="Capture d&#39;écran 2026-05-03 224453" src="https://github.com/user-attachments/assets/86eb2bef-69c8-42ae-9c12-dd5a0ed9ccea" />
 
 1. **Active Providers**  
    Displays the current LLM provider and web search provider, along with their connection status.
@@ -60,10 +60,14 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 
 6. **User Query**  
    The input question submitted by the user, which triggers the search and response generation pipeline.
+
+ ## 🎨 UI Mobile  
+
 <img width="1569" height="1071" alt="legal_llm_mobile" src="https://github.com/user-attachments/assets/94256d9e-b8c4-41f2-b65d-c5fcff0c593a" />
 
 
 
+## Query-to-Answer Flow (13 Steps)
 
 ```
 User: "ما المقصود بالتشريع والترتيب المنظم؟"
