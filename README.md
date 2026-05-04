@@ -35,8 +35,32 @@ An Arabic-language AI assistant that answers questions about Tunisian law. Users
 
 ## Query-to-Answer Flow (13 Steps)
 <img width="1793" height="881" alt="image" src="https://github.com/user-attachments/assets/e9080af8-459f-4b3a-96d8-a33433707e3c" />
-1.Active LLM and  Web search provider    2. Chat Panel :User input field     3.legal sources: Legal code name ,Article number ,Relevance score
-4. History Panel: Lists previous sessions ,“New Session”     5.Structured legal response: Definition,Explanation,Summary    6.user query 
+## 🎨 UI Overview
+
+1. **Active Providers**  
+   Displays the current LLM provider and web search provider, along with their connection status.
+
+2. **Chat Panel**  
+   Main interaction area where users enter their legal queries and view the conversation.
+
+3. **Legal Sources Panel**  
+   Shows retrieved legal references, including:
+   - Legal code name  
+   - Article number  
+   - Relevance score  
+
+4. **History Panel**  
+   Provides access to previous sessions with quick navigation and a **"New Session"** option.
+
+5. **Answer Card**  
+   Presents a structured legal response organized into:
+   - Definition  
+   - Explanation  
+   - Summary  
+
+6. **User Query**  
+   The input question submitted by the user, which triggers the search and response generation pipeline.
+<img width="1569" height="1071" alt="legal_llm_mobile" src="https://github.com/user-attachments/assets/94256d9e-b8c4-41f2-b65d-c5fcff0c593a" />
 
 
 
