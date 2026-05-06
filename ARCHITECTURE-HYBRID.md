@@ -231,15 +231,3 @@ Point ID: 1001
 - **Prefetch limit**: 50 per branch (dense + sparse)
 
 ---
-
-## Next Steps
-
-- [ ] Add `score_threshold` parameter to `/search` endpoint
-- [ ] Add threshold tuning UI in `search.html`
-- [ ] Test comparison: Dense-only vs. Hybrid (precision/recall)
-- [ ] Add "Did you mean?" suggestions for misspelled Arabic queries
-- [ ] Implement click tracking to improve ranking
-
----
-
-*Last updated: 2026-04-28*
